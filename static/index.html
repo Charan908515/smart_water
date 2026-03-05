@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Water - Hydration Tracker</title>
+    <meta name="description"
+        content="Track your hydration with your smart water device. Get real-time predictions and personalized recommendations.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=2">
+</head>
+
+<body>
+
+    <div class="bg-orbs" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+    </div>
+
+    <section id="view-landing" class="view active">
+        <div class="glass-card landing-card">
+            <div class="logo-icon">SW</div>
+            <h1>Smart Water</h1>
+            <p class="subtitle">Connect your device to start tracking hydration</p>
+
+            <div class="input-group" id="mac-input-group">
+                <label for="mac-input">Enter last 6 characters of your Device ID</label>
+                <input type="text" id="mac-input" maxlength="6" placeholder="e.g. A1B2C3" autocomplete="off"
+                    spellcheck="false">
+                <div class="input-hint">Found on the back of your Smart Water band</div>
+            </div>
+
+            <button id="btn-connect" class="btn-primary" onclick="connectDevice()">
+                <span class="btn-text">Connect Device</span>
+                <span class="btn-loader" hidden></span>
+            </button>
+
+            <div id="landing-error" class="error-msg" hidden></div>
+        </div>
+    </section>
+
+    <section id="view-register" class="view">
+        <div class="glass-card register-card">
+            <button class="btn-back" onclick="showView('landing')">Back</button>
+            <h2>Welcome, New User</h2>
+            <p class="subtitle">Set up your profile to get personalized hydration insights</p>
+
+            <div class="device-badge" id="reg-mac-badge"></div>
+
+            <form id="register-form" onsubmit="registerUser(event)">
+                <div class="form-grid">
+                    <div class="input-group" style="grid-column: 1 / -1;">
+                        <label for="reg-password">Password</label>
+                        <input type="password" id="reg-password" required minlength="4"
+                            placeholder="Create a secure password">
+                    </div>
+                    <div class="input-group">
+                        <label for="reg-age">Age</label>
+                        <input type="number" id="reg-age" min="10" max="100" required placeholder="25">
+                    </div>
+                    <div class="input-group">
+                        <label for="reg-gender">Gender</label>
+                        <select id="reg-gender" required>
+                            <option value="">Select</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="reg-weight">Weight (kg)</label>
+                        <input type="number" id="reg-weight" min="20" max="250" step="0.1" required placeholder="70">
+                    </div>
+                    <div class="input-group">
+                        <label for="reg-location">Location (City or Town)</label>
+                        <input type="text" id="reg-location" list="location-suggestions" required placeholder="Pune">
+                        <datalist id="location-suggestions"></datalist>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary" id="btn-register">
+                    <span class="btn-text">Create Profile and Continue</span>
+                    <span class="btn-loader" hidden></span>
+                </button>
+            </form>
+
+            <div id="register-error" class="error-msg" hidden></div>
+        </div>
+    </section>
+
+    <section id="view-login" class="view">
+        <div class="glass-card login-card">
+            <button class="btn-back" onclick="showView('landing')">Back</button>
+            <h2>Welcome Back</h2>
+            <p class="subtitle">Enter your password to view your dashboard</p>
+
+            <div class="device-badge" id="login-mac-badge"></div>
+
+            <form id="login-form" onsubmit="loginUser(event)">
+                <div class="input-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" required placeholder="Enter your password">
+                </div>
+
+                <button type="submit" class="btn-primary" id="btn-login">
+                    <span class="btn-text">Login</span>
+                    <span class="btn-loader" hidden></span>
+                </button>
+            </form>
+
+            <div id="login-error" class="error-msg" hidden></div>
+        </div>
+    </section>
+
+    <section id="view-set-password" class="view">
+        <div class="glass-card login-card">
+            <button class="btn-back" onclick="showView('landing')">Back</button>
+            <h2>Security Update</h2>
+            <p class="subtitle">We upgraded our systems. Please set a password for your account.</p>
+
+            <div class="device-badge" id="setpass-mac-badge"></div>
+
+            <form id="setpass-form" onsubmit="setLegacyPassword(event)">
+                <div class="input-group">
+                    <label for="new-password">New Password</label>
+                    <input type="password" id="new-password" required minlength="4"
+                        placeholder="Create a secure password">
+                </div>
+
+                <button type="submit" class="btn-primary" id="btn-setpass">
+                    <span class="btn-text">Save and Continue</span>
+                    <span class="btn-loader" hidden></span>
+                </button>
+            </form>
+
+            <div id="setpass-error" class="error-msg" hidden></div>
+        </div>
+    </section>
+
+    <section id="view-dashboard" class="view">
+        <header class="dash-header">
+            <div class="dash-header-left">
+                <span class="logo-icon-sm">SW</span>
+                <h1>Smart Water</h1>
+            </div>
+            <button class="btn-ghost" onclick="disconnect()">Disconnect</button>
+        </header>
+
+        <div class="user-bar glass-card-sm">
+            <span id="dash-user-info"></span>
+            <span id="dash-device-badge" class="device-badge-sm"></span>
+        </div>
+
+        <div class="stats-row">
+            <div class="stat-card glass-card-sm" id="stat-hydration">
+                <div class="stat-icon">H2O</div>
+                <div class="stat-label">Hydration Status</div>
+                <div class="stat-value" id="stat-hydration-val">-</div>
+                <div class="stat-sub" id="stat-hydration-sub"></div>
+            </div>
+            <div class="stat-card glass-card-sm" id="stat-activity">
+                <div class="stat-icon">ACT</div>
+                <div class="stat-label">Activity Level</div>
+                <div class="stat-value" id="stat-activity-val">-</div>
+                <div class="stat-sub" id="stat-activity-sub"></div>
+            </div>
+            <div class="stat-card glass-card-sm" id="stat-weather">
+                <div class="stat-icon">WX</div>
+                <div class="stat-label">Weather</div>
+                <div class="stat-value" id="stat-weather-val">-</div>
+                <div class="stat-sub" id="stat-weather-sub"></div>
+            </div>
+        </div>
+
+        <div class="glass-card water-section">
+            <h2>Today's Water Intake</h2>
+
+            <div class="water-progress-wrap">
+                <div class="water-progress-bar">
+                    <div class="water-fill" id="water-fill" style="width:0%"></div>
+                </div>
+                <div class="water-labels">
+                    <span id="water-current">0.00 L</span>
+                    <span id="water-target">/ 2.00 L</span>
+                </div>
+                <div class="water-percent" id="water-percent">0%</div>
+            </div>
+
+            <div class="water-buttons">
+                <button class="btn-water" onclick="logWater(0.15)">150 ml</button>
+                <button class="btn-water" onclick="logWater(0.25)">250 ml</button>
+                <button class="btn-water" onclick="logWater(0.5)">500 ml</button>
+                <button class="btn-water" onclick="logWater(1.0)">1 L</button>
+            </div>
+
+            <div class="custom-water">
+                <input type="number" id="custom-water-amount" min="0.01" max="5" step="0.01" placeholder="Custom (L)">
+                <button class="btn-secondary" onclick="logCustomWater()">Log</button>
+            </div>
+        </div>
+
+        <div class="glass-card prediction-section">
+            <h2>Hydration Prediction</h2>
+            <div class="prediction-detail" id="prediction-detail">
+                <p class="muted">Log water or wait for device sync to see your prediction.</p>
+            </div>
+        </div>
+
+        <div class="glass-card weather-history-section">
+            <h2>Hourly Temperature</h2>
+            <p class="section-sub">Weather readings fetched every hour from Open-Meteo</p>
+            <div class="weather-chart" id="weather-chart">
+                <p class="muted">Temperature data will appear after the first hourly fetch.</p>
+            </div>
+        </div>
+
+        <div class="glass-card activity-history-section">
+            <h2>Device Activity Readings</h2>
+            <p class="section-sub">Raw numeric values received from your Smart Water band</p>
+            <div class="activity-table-wrap" id="activity-table-wrap">
+                <p class="muted">No activity readings yet. Data appears when your device syncs.</p>
+            </div>
+        </div>
+
+        <div class="glass-card recommendation-section" id="recommendation-section" hidden>
+            <div class="recommendation-icon" id="rec-icon">OK</div>
+            <div class="recommendation-text" id="rec-text"></div>
+        </div>
+    </section>
+
+    <script src="/static/app.js?v=3"></script>
+</body>
+
+</html>
