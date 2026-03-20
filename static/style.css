@@ -245,6 +245,36 @@ body {
     color: var(--text-muted);
 }
 
+.password-input-wrap {
+    position: relative;
+}
+
+.password-input-wrap input {
+    padding-right: 4.8rem;
+}
+
+.password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.5rem;
+    transform: translateY(-50%);
+    border: none;
+    background: rgba(26, 77, 107, 0.08);
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.password-toggle:hover {
+    background: rgba(15, 185, 177, 0.18);
+    color: var(--text-primary);
+}
+
 .input-hint {
     font-size: 0.75rem;
     color: var(--text-muted);

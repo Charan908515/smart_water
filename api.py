@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from hydration_predictor import HydrationPredictor
 from weather_service import get_weather_service
-from user_profile import UserProfile, find_profile_by_mac, find_profile_by_username
+from user_profile import UserProfile, find_profile_by_mac, find_profile_by_username, normalize_mac_id
 import uvicorn
 import asyncio
 import os
@@ -20,7 +20,6 @@ static_dir = os.path.join(os.path.dirname(__file__), 'static')
 os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-# Load the ML model
 try:
     predictor = HydrationPredictor()
 except Exception as e:
@@ -28,7 +27,6 @@ except Exception as e:
     print(f"Warning: Failed to load predictor model: {e}")
 
 
-# ─── Background: Hourly Weather Fetch ─────────────────────────
 
 async def hourly_weather_task():
     """Background task: fetch weather for all registered users every hour."""
@@ -74,10 +72,9 @@ async def startup_event():
     asyncio.create_task(hourly_weather_task())
 
 
-# ─── Request Models ───────────────────────────────────────────
 
 class RegisterRequest(BaseModel):
-    mac_id: str = Field(..., description="Last 6 characters of device MAC address")
+    mac_id: str = Field(..., description="Full device MAC address")
     username: str = Field(..., min_length=3, max_length=50, description="Unique username")
     password: str = Field(..., description="User password for dashboard access")
     age: int = Field(..., description="Age in years")
@@ -90,11 +87,11 @@ class LoginRequest(BaseModel):
     password: str = Field(..., description="User password for dashboard access")
 
 class PredictionRequest(BaseModel):
-    mac_id: str = Field(..., description="Last 6 characters of device MAC address")
+    mac_id: str = Field(..., description="Full device MAC address")
     activity_level: float = Field(..., description="Numeric activity level from device")
 
 class LogWaterRequest(BaseModel):
-    mac_id: str = Field(..., description="Last 6 characters of device MAC address")
+    mac_id: str = Field(..., description="Full device MAC address")
     amount: float = Field(..., description="Water amount in liters")
 
 class UpdateCoordsRequest(BaseModel):
@@ -102,7 +99,6 @@ class UpdateCoordsRequest(BaseModel):
     longitude: float = Field(..., ge=-180, le=180, description="GPS longitude from browser")
 
 
-# ─── Weather helper ────────────────────────────────────────────
 
 def _get_weather_for_profile(profile) -> dict:
     """
@@ -168,8 +164,12 @@ async def check_device(mac_id: str):
 @app.post("/register")
 async def register_user(request: RegisterRequest, response: Response):
     """Register a new user linked to a device MAC ID."""
+    mac_clean = normalize_mac_id(request.mac_id)
+    if len(mac_clean) < 12:
+        raise HTTPException(status_code=400, detail="Please provide the full MAC ID (not partial).")
+
     # Check if MAC is already registered
-    existing = find_profile_by_mac(request.mac_id)
+    existing = find_profile_by_mac(mac_clean)
     if existing is not None:
         raise HTTPException(status_code=409, detail="Device already registered")
     
@@ -182,7 +182,6 @@ async def register_user(request: RegisterRequest, response: Response):
     new_user_id = str(uuid.uuid4())
     
     # Create profile keyed by user_id
-    mac_clean = request.mac_id.upper().strip()
     username_clean = request.username.strip().lower()
     profile = UserProfile(new_user_id)
     profile.update_mac_id(mac_clean)
@@ -243,12 +242,13 @@ async def predict_hydration(request: PredictionRequest):
             detail="Predictor model is not loaded. Please ensure models are trained."
         )
 
-    profile = find_profile_by_mac(request.mac_id)
+    mac_clean = normalize_mac_id(request.mac_id)
+    profile = find_profile_by_mac(mac_clean)
     if profile is None:
         return {
             "ignored": True,
             "message": "mac_id not registered; activity reading ignored",
-            "mac_id": request.mac_id.upper().strip()
+            "mac_id": mac_clean
         }
 
     # Store the activity reading
@@ -270,7 +270,7 @@ async def predict_hydration(request: PredictionRequest):
         weather_data = _get_weather_for_profile(profile)
         weather_condition = weather_data.get('condition', 'Normal')
 
-        print(f"\n[ML Predictor] Running model for /predict (MAC: {request.mac_id})")
+        print(f"\n[ML Predictor] Running model for /predict (MAC: {mac_clean})")
         print(f"   ↳ Inputs -> Age:{age}, Gender:{gender}, Weight:{weight}, Activity:{activity_category}, Weather:{weather_condition}, Water:{profile.get_today_water_intake()}L")
 
         result = predictor.predict(
@@ -301,7 +301,8 @@ async def predict_hydration(request: PredictionRequest):
 @app.post("/log-water")
 async def log_water(request: LogWaterRequest):
     """Log a water intake event and instantly return the new ML prediction."""
-    profile = find_profile_by_mac(request.mac_id)
+    mac_clean = normalize_mac_id(request.mac_id)
+    profile = find_profile_by_mac(mac_clean)
     if profile is None:
         raise HTTPException(status_code=404, detail="Device not registered")
 
@@ -321,7 +322,7 @@ async def log_water(request: LogWaterRequest):
             except Exception:
                 weather_condition = 'Normal'
 
-            print(f"\n[ML Predictor] Running model for /log-water (MAC: {request.mac_id})")
+            print(f"\n[ML Predictor] Running model for /log-water (MAC: {mac_clean})")
             print(f"   ↳ Inputs -> Age:{base_info.get('age', 25)}, Gender:{base_info.get('gender', 'Male')}, Weight:{base_info.get('weight', 70)}, Activity:{activity_category if activity_category else 'Low'}, Weather:{weather_condition}, Water:{profile.get_today_water_intake()}L")
 
             prediction = predictor.predict(
@@ -350,7 +351,8 @@ async def update_coords(mac_id: str, request: UpdateCoordsRequest):
     Called automatically on page open; used by the server for all subsequent
     weather lookups (activity pings, hourly task, predictions).
     """
-    profile = find_profile_by_mac(mac_id)
+    mac_clean = normalize_mac_id(mac_id)
+    profile = find_profile_by_mac(mac_clean)
     if profile is None:
         raise HTTPException(status_code=404, detail="Device not registered")
 
@@ -365,7 +367,8 @@ async def update_coords(mac_id: str, request: UpdateCoordsRequest):
 @app.get("/status/{mac_id}")
 async def get_status(mac_id: str):
     """Get full current hydration status for a device."""
-    profile = find_profile_by_mac(mac_id)
+    mac_clean = normalize_mac_id(mac_id)
+    profile = find_profile_by_mac(mac_clean)
     if profile is None:
         raise HTTPException(status_code=404, detail="Device not registered")
 
@@ -419,11 +422,12 @@ async def get_status(mac_id: str):
 @app.get("/weather-history/{mac_id}")
 async def get_weather_history(mac_id: str, hours: int = 24):
     """Get hourly weather temperature readings for a device's location."""
-    profile = find_profile_by_mac(mac_id)
+    mac_clean = normalize_mac_id(mac_id)
+    profile = find_profile_by_mac(mac_clean)
     if profile is None:
         raise HTTPException(status_code=404, detail="Device not registered")
     return {
-        "mac_id": mac_id,
+        "mac_id": mac_clean,
         "location": profile.data.get('location', ''),
         "readings": profile.get_weather_history(hours)
     }
@@ -457,11 +461,12 @@ async def location_suggest(query: str = Query(..., min_length=2, max_length=60))
 @app.get("/activity-history/{mac_id}")
 async def get_activity_history(mac_id: str, count: int = 20):
     """Get raw activity level values received from the device."""
-    profile = find_profile_by_mac(mac_id)
+    mac_clean = normalize_mac_id(mac_id)
+    profile = find_profile_by_mac(mac_clean)
     if profile is None:
         raise HTTPException(status_code=404, detail="Device not registered")
     return {
-        "mac_id": mac_id,
+        "mac_id": mac_clean,
         "readings": profile.get_raw_activity_values(count),
         "category": profile.get_activity_category(),
         "avg_7day": profile.get_7day_activity_average()

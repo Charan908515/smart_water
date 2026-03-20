@@ -17,6 +17,13 @@ const LS_SESSION = 'sw_session_mac';    // current logged-in MAC ID
 const GEO_CACHE_MS = 60 * 60 * 1000;
 const WEATHER_CACHE_MS = 60 * 60 * 1000;
 
+function normalizeMacId(macId) {
+    return (macId || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '');
+}
+
 // ─── Geolocation helpers ─────────────────────────────────────────────
 
 /**
@@ -213,6 +220,18 @@ document.addEventListener('DOMContentLoaded', () => {
             locDebounce = setTimeout(() => fetchLocationSuggestions(q), 300);
         });
     }
+
+    document.querySelectorAll('.password-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('data-target');
+            const input = document.getElementById(targetId);
+            if (!input) return;
+            const reveal = input.type === 'password';
+            input.type = reveal ? 'text' : 'password';
+            btn.textContent = reveal ? 'Hide' : 'Show';
+            btn.setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
+        });
+    });
 });
 
 async function fetchLocationSuggestions(query) {
@@ -236,15 +255,15 @@ async function registerUser(event) {
     clearError('register-error');
     setLoading('btn-register', true);
 
-    const macId = document.getElementById('reg-mac-id').value.trim().toUpperCase();
+    const macId = normalizeMacId(document.getElementById('reg-mac-id').value);
     const username = document.getElementById('reg-username').value.trim();
     const password = document.getElementById('reg-password').value;
     const age = parseInt(document.getElementById('reg-age').value, 10);
     const gender = document.getElementById('reg-gender').value;
     const weight = parseFloat(document.getElementById('reg-weight').value);
     const location = document.getElementById('reg-location').value.trim();
-    if (macId.length !== 6) {
-        showError('register-error', 'Please enter exactly 6 characters for MAC ID.');
+    if (macId.length < 12) {
+        showError('register-error', 'Please enter the full MAC ID (at least 12 characters).');
         setLoading('btn-register', false);
         return;
     }
@@ -511,7 +530,7 @@ function renderActivityTable(readings, category) {
     }
 
     const rows = readings.map(r => {
-        const time = r.timestamp ? new Date(r.timestamp * 1000).toLocaleString() : '—';
+        const time = r.timestamp ? new Date(r.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '—';
         return `<tr><td>${time}</td><td>${r.value?.toFixed(2) ?? r.toFixed?.(2) ?? r}</td></tr>`;
     }).join('');
 

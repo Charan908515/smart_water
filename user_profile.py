@@ -6,9 +6,22 @@ from database import get_db
 import config
 
 
+def normalize_mac_id(mac_id: str) -> str:
+    """
+    Normalize MAC ID for consistent matching.
+    Keeps the full MAC ID but removes separators/spaces and uppercases it.
+    """
+    if mac_id is None:
+        return ''
+    cleaned = ''.join(ch for ch in str(mac_id).strip() if ch.isalnum())
+    return cleaned.upper()
+
+
 def find_profile_by_mac(mac_id: str):
-    """Search MongoDB for a profile matching the given mac_id (last 6 chars)."""
-    mac_id = mac_id.upper().strip()[-6:]
+    """Search MongoDB for a profile matching the full normalized mac_id."""
+    mac_id = normalize_mac_id(mac_id)
+    if not mac_id:
+        return None
     db = get_db()
     if db is None:
         return None
@@ -133,7 +146,7 @@ class UserProfile:
         return self.data.get('coords')
 
     def update_mac_id(self, mac_id: str):
-        self.data['mac_id'] = mac_id.upper().strip()
+        self.data['mac_id'] = normalize_mac_id(mac_id)
         self.save()
 
     def update_username(self, username: str):

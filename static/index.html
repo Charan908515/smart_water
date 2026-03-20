@@ -46,8 +46,8 @@
             <form id="register-form" onsubmit="registerUser(event)">
                 <div class="form-grid">
                     <div class="input-group">
-                        <label for="reg-mac-id">Device MAC ID (last 6 chars)</label>
-                        <input type="text" id="reg-mac-id" maxlength="6" required placeholder="A1B2C3" autocomplete="off"
+                        <label for="reg-mac-id">Device MAC ID (full)</label>
+                        <input type="text" id="reg-mac-id" required placeholder="AABBCCDDEEFF" autocomplete="off"
                             spellcheck="false">
                     </div>
                     <div class="input-group">
@@ -55,10 +55,13 @@
                         <input type="text" id="reg-username" minlength="3" maxlength="50" required placeholder="Enter a username"
                             autocomplete="username" spellcheck="false">
                     </div>
-                    <div class="input-group" style="grid-column: 1 / -1;">
+                    <div class="input-group password-group" style="grid-column: 1 / -1;">
                         <label for="reg-password">Password</label>
-                        <input type="password" id="reg-password" required minlength="4"
-                            placeholder="Create a secure password">
+                        <div class="password-input-wrap">
+                            <input type="password" id="reg-password" required minlength="4"
+                                placeholder="Create a secure password">
+                            <button type="button" class="password-toggle" data-target="reg-password" aria-label="Show password">Show</button>
+                        </div>
                     </div>
                     <div class="input-group">
                         <label for="reg-age">Age</label>
@@ -106,7 +109,10 @@
                 </div>
                 <div class="input-group">
                     <label for="login-password">Password</label>
-                    <input type="password" id="login-password" required placeholder="Enter your password" autocomplete="current-password">
+                    <div class="password-input-wrap">
+                        <input type="password" id="login-password" required placeholder="Enter your password" autocomplete="current-password">
+                        <button type="button" class="password-toggle" data-target="login-password" aria-label="Show password">Show</button>
+                    </div>
                 </div>
 
                 <button type="submit" class="btn-primary" id="btn-login">
