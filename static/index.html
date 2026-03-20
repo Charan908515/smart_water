@@ -24,21 +24,16 @@
         <div class="glass-card landing-card">
             <div class="logo-icon">SW</div>
             <h1>Smart Water</h1>
-            <p class="subtitle">Connect your device to start tracking hydration</p>
+            <p class="subtitle">Register your account or login to continue</p>
 
-            <div class="input-group" id="mac-input-group">
-                <label for="mac-input">Enter last 6 characters of your Device ID</label>
-                <input type="text" id="mac-input" maxlength="6" placeholder="e.g. A1B2C3" autocomplete="off"
-                    spellcheck="false">
-                <div class="input-hint">Found on the back of your Smart Water band</div>
+            <div class="water-buttons">
+                <button id="btn-goto-register" class="btn-primary" onclick="showView('register')">
+                    <span class="btn-text">Register</span>
+                </button>
+                <button id="btn-goto-login" class="btn-secondary" onclick="showView('login')">
+                    <span class="btn-text">Login</span>
+                </button>
             </div>
-
-            <button id="btn-connect" class="btn-primary" onclick="connectDevice()">
-                <span class="btn-text">Connect Device</span>
-                <span class="btn-loader" hidden></span>
-            </button>
-
-            <div id="landing-error" class="error-msg" hidden></div>
         </div>
     </section>
 
@@ -48,10 +43,18 @@
             <h2>Welcome, New User</h2>
             <p class="subtitle">Set up your profile to get personalized hydration insights</p>
 
-            <div class="device-badge" id="reg-mac-badge"></div>
-
             <form id="register-form" onsubmit="registerUser(event)">
                 <div class="form-grid">
+                    <div class="input-group">
+                        <label for="reg-mac-id">Device MAC ID (last 6 chars)</label>
+                        <input type="text" id="reg-mac-id" maxlength="6" required placeholder="A1B2C3" autocomplete="off"
+                            spellcheck="false">
+                    </div>
+                    <div class="input-group">
+                        <label for="reg-username">Username</label>
+                        <input type="text" id="reg-username" minlength="3" maxlength="50" required placeholder="Enter a username"
+                            autocomplete="username" spellcheck="false">
+                    </div>
                     <div class="input-group" style="grid-column: 1 / -1;">
                         <label for="reg-password">Password</label>
                         <input type="password" id="reg-password" required minlength="4"
@@ -94,14 +97,16 @@
         <div class="glass-card login-card">
             <button class="btn-back" onclick="showView('landing')">Back</button>
             <h2>Welcome Back</h2>
-            <p class="subtitle">Enter your password to view your dashboard</p>
-
-            <div class="device-badge" id="login-mac-badge"></div>
+            <p class="subtitle">Login using your username and password</p>
 
             <form id="login-form" onsubmit="loginUser(event)">
                 <div class="input-group">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" required placeholder="Enter your username" autocomplete="username">
+                </div>
+                <div class="input-group">
                     <label for="login-password">Password</label>
-                    <input type="password" id="login-password" required placeholder="Enter your password">
+                    <input type="password" id="login-password" required placeholder="Enter your password" autocomplete="current-password">
                 </div>
 
                 <button type="submit" class="btn-primary" id="btn-login">
@@ -111,31 +116,6 @@
             </form>
 
             <div id="login-error" class="error-msg" hidden></div>
-        </div>
-    </section>
-
-    <section id="view-set-password" class="view">
-        <div class="glass-card login-card">
-            <button class="btn-back" onclick="showView('landing')">Back</button>
-            <h2>Security Update</h2>
-            <p class="subtitle">We upgraded our systems. Please set a password for your account.</p>
-
-            <div class="device-badge" id="setpass-mac-badge"></div>
-
-            <form id="setpass-form" onsubmit="setLegacyPassword(event)">
-                <div class="input-group">
-                    <label for="new-password">New Password</label>
-                    <input type="password" id="new-password" required minlength="4"
-                        placeholder="Create a secure password">
-                </div>
-
-                <button type="submit" class="btn-primary" id="btn-setpass">
-                    <span class="btn-text">Save and Continue</span>
-                    <span class="btn-loader" hidden></span>
-                </button>
-            </form>
-
-            <div id="setpass-error" class="error-msg" hidden></div>
         </div>
     </section>
 

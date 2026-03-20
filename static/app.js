@@ -199,41 +199,6 @@ function clearError(elId) {
     if (el) el.hidden = true;
 }
 
-// ─── Device connect ───────────────────────────────────────────────────
-
-async function connectDevice() {
-    const mac = document.getElementById('mac-input').value.trim().toUpperCase();
-    if (mac.length !== 6) { showError('landing-error', 'Please enter exactly 6 characters.'); return; }
-    clearError('landing-error');
-    setLoading('btn-connect', true);
-
-    try {
-        const resp = await fetch(`/device/${mac}`);
-        if (resp.status === 404) {
-            // New device – go to registration
-            currentMac = mac;
-            document.getElementById('reg-mac-badge').textContent = mac;
-            showView('register');
-        } else if (resp.ok) {
-            const data = await resp.json();
-            currentMac = mac;
-            if (!data.has_password) {
-                document.getElementById('setpass-mac-badge').textContent = mac;
-                showView('set-password');
-            } else {
-                document.getElementById('login-mac-badge').textContent = mac;
-                showView('login');
-            }
-        } else {
-            showError('landing-error', 'Connection failed. Please try again.');
-        }
-    } catch (_) {
-        showError('landing-error', 'Network error. Is the server running?');
-    } finally {
-        setLoading('btn-connect', false);
-    }
-}
-
 // ─── Registration ─────────────────────────────────────────────────────
 
 // Location autocomplete
@@ -271,20 +236,28 @@ async function registerUser(event) {
     clearError('register-error');
     setLoading('btn-register', true);
 
+    const macId = document.getElementById('reg-mac-id').value.trim().toUpperCase();
+    const username = document.getElementById('reg-username').value.trim();
     const password = document.getElementById('reg-password').value;
     const age = parseInt(document.getElementById('reg-age').value, 10);
     const gender = document.getElementById('reg-gender').value;
     const weight = parseFloat(document.getElementById('reg-weight').value);
     const location = document.getElementById('reg-location').value.trim();
+    if (macId.length !== 6) {
+        showError('register-error', 'Please enter exactly 6 characters for MAC ID.');
+        setLoading('btn-register', false);
+        return;
+    }
 
     try {
         const resp = await fetch('/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mac_id: currentMac, password, age, gender, weight, location })
+            body: JSON.stringify({ mac_id: macId, username, password, age, gender, weight, location })
         });
         const data = await resp.json();
         if (resp.ok) {
+            currentMac = data.profile?.mac_id || macId;
             openDashboard(data.profile);
         } else {
             showError('register-error', data.detail || 'Registration failed.');
@@ -303,16 +276,18 @@ async function loginUser(event) {
     clearError('login-error');
     setLoading('btn-login', true);
 
+    const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
 
     try {
         const resp = await fetch('/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mac_id: currentMac, password })
+            body: JSON.stringify({ username, password })
         });
         const data = await resp.json();
         if (resp.ok) {
+            currentMac = data.profile?.mac_id || currentMac;
             openDashboard(data.profile);
         } else {
             showError('login-error', data.detail || 'Login failed.');
@@ -324,42 +299,14 @@ async function loginUser(event) {
     }
 }
 
-// ─── Set password (legacy) ────────────────────────────────────────────
-
-async function setLegacyPassword(event) {
-    event.preventDefault();
-    clearError('setpass-error');
-    setLoading('btn-setpass', true);
-
-    const password = document.getElementById('new-password').value;
-
-    try {
-        const resp = await fetch('/set-password', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mac_id: currentMac, password })
-        });
-        const data = await resp.json();
-        if (resp.ok) {
-            openDashboard(data.profile);
-        } else {
-            showError('setpass-error', data.detail || 'Failed to set password.');
-        }
-    } catch (_) {
-        showError('setpass-error', 'Network error. Please try again.');
-    } finally {
-        setLoading('btn-setpass', false);
-    }
-}
-
 // ─── Dashboard ────────────────────────────────────────────────────────
 
 function openDashboard(profile) {
+    if (profile?.mac_id) currentMac = profile.mac_id;
     const info = document.getElementById('dash-user-info');
     const badge = document.getElementById('dash-device-badge');
     if (info) {
-        const b = profile.base_info || {};
-        info.textContent = [b.gender, b.age ? `${b.age} yrs` : '', b.weight ? `${b.weight} kg` : '']
+        info.textContent = [profile.gender, profile.age ? `${profile.age} yrs` : '', profile.weight ? `${profile.weight} kg` : '']
             .filter(Boolean).join(' · ');
     }
     if (badge) badge.textContent = currentMac;
@@ -583,7 +530,6 @@ async function disconnect() {
     currentMac = null;
     localStorage.removeItem(LS_SESSION);
     if (dashboardTimer) { clearInterval(dashboardTimer); dashboardTimer = null; }
-    document.getElementById('mac-input').value = '';
 
     // Tell the backend to clear the HttpOnly session cookie
     try {

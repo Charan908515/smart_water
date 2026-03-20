@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from hydration_predictor import HydrationPredictor
 from weather_service import get_weather_service
-from user_profile import UserProfile, find_profile_by_mac
+from user_profile import UserProfile, find_profile_by_mac, find_profile_by_username
 import uvicorn
 import asyncio
 import os
@@ -78,6 +78,7 @@ async def startup_event():
 
 class RegisterRequest(BaseModel):
     mac_id: str = Field(..., description="Last 6 characters of device MAC address")
+    username: str = Field(..., min_length=3, max_length=50, description="Unique username")
     password: str = Field(..., description="User password for dashboard access")
     age: int = Field(..., description="Age in years")
     gender: str = Field(..., description="'Male' or 'Female'")
@@ -85,12 +86,8 @@ class RegisterRequest(BaseModel):
     location: str = Field(..., description="City name for weather")
 
 class LoginRequest(BaseModel):
-    mac_id: str = Field(..., description="Last 6 characters of device MAC address")
+    username: str = Field(..., min_length=3, max_length=50, description="Registered username")
     password: str = Field(..., description="User password for dashboard access")
-
-class SetPasswordRequest(BaseModel):
-    mac_id: str = Field(..., description="Last 6 characters of device MAC address")
-    password: str = Field(..., description="New password to set for migrated legacy account")
 
 class PredictionRequest(BaseModel):
     mac_id: str = Field(..., description="Last 6 characters of device MAC address")
@@ -175,14 +172,21 @@ async def register_user(request: RegisterRequest, response: Response):
     existing = find_profile_by_mac(request.mac_id)
     if existing is not None:
         raise HTTPException(status_code=409, detail="Device already registered")
+    
+    # Check if username is already registered
+    existing_username = find_profile_by_username(request.username)
+    if existing_username is not None:
+        raise HTTPException(status_code=409, detail="Username already registered")
 
     import uuid
     new_user_id = str(uuid.uuid4())
     
     # Create profile keyed by user_id
     mac_clean = request.mac_id.upper().strip()
+    username_clean = request.username.strip().lower()
     profile = UserProfile(new_user_id)
     profile.update_mac_id(mac_clean)
+    profile.update_username(username_clean)
     profile.set_password(request.password)
     profile.update_base_info(
         age=request.age,
@@ -199,13 +203,13 @@ async def register_user(request: RegisterRequest, response: Response):
 
 @app.post("/login")
 async def login_user(request: LoginRequest, response: Response):
-    """Authenticate a returning user with their MAC ID and password."""
-    profile = find_profile_by_mac(request.mac_id)
+    """Authenticate a returning user with their username and password."""
+    profile = find_profile_by_username(request.username)
     if profile is None:
-        raise HTTPException(status_code=404, detail="Device not registered")
+        raise HTTPException(status_code=404, detail="Username not registered")
         
     if not profile.has_password():
-        raise HTTPException(status_code=400, detail="Use /set-password for migrated accounts")
+        raise HTTPException(status_code=400, detail="Account has no password configured")
         
     if not profile.verify_password(request.password):
         raise HTTPException(status_code=401, detail="Incorrect password")
@@ -215,23 +219,6 @@ async def login_user(request: LoginRequest, response: Response):
         
     return {"message": "Login successful", "profile": profile.get_summary()}
 
-
-@app.post("/set-password")
-async def set_password_legacy(request: SetPasswordRequest, response: Response):
-    """Set a password for a legacy account that was migrated from JSON to MongoDB."""
-    profile = find_profile_by_mac(request.mac_id)
-    if profile is None:
-        raise HTTPException(status_code=404, detail="Device not registered")
-        
-    if profile.has_password():
-        raise HTTPException(status_code=400, detail="Account already has a password")
-        
-    profile.set_password(request.password)
-    
-    # Set 30-day session cookie
-    response.set_cookie(key="session_mac", value=profile.data.get('mac_id'), max_age=30*24*60*60, httponly=True)
-    
-    return {"message": "Password set securely", "profile": profile.get_summary()}
 
 @app.post("/logout")
 async def logout(response: Response):
@@ -258,10 +245,11 @@ async def predict_hydration(request: PredictionRequest):
 
     profile = find_profile_by_mac(request.mac_id)
     if profile is None:
-        import uuid
-        new_user_id = str(uuid.uuid4())
-        profile = UserProfile(new_user_id)
-        profile.update_mac_id(request.mac_id)
+        return {
+            "ignored": True,
+            "message": "mac_id not registered; activity reading ignored",
+            "mac_id": request.mac_id.upper().strip()
+        }
 
     # Store the activity reading
     profile.add_activity_reading(request.activity_level)

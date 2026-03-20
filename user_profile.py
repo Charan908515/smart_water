@@ -18,6 +18,20 @@ def find_profile_by_mac(mac_id: str):
         return UserProfile(user_data['user_id'], preload_data=user_data)
     return None
 
+def find_profile_by_username(username: str):
+    """Search MongoDB for a profile matching the given username."""
+    username = username.strip().lower()
+    if not username:
+        return None
+    db = get_db()
+    if db is None:
+        return None
+
+    user_data = db.users.find_one({'username': username})
+    if user_data:
+        return UserProfile(user_data['user_id'], preload_data=user_data)
+    return None
+
 
 class UserProfile:
 
@@ -43,6 +57,7 @@ class UserProfile:
         return {
             'user_id': self.user_id,
             'mac_id': '',
+            'username': '',
             'password_hash': None,
             'created_at': datetime.now().isoformat(),
             'base_info': {},
@@ -119,6 +134,10 @@ class UserProfile:
 
     def update_mac_id(self, mac_id: str):
         self.data['mac_id'] = mac_id.upper().strip()
+        self.save()
+
+    def update_username(self, username: str):
+        self.data['username'] = username.strip().lower()
         self.save()
 
     # ---------- Activity Tracking ----------
@@ -308,6 +327,7 @@ class UserProfile:
         return {
             'user_id': self.user_id,
             'mac_id': self.data.get('mac_id', ''),
+            'username': self.data.get('username', ''),
             'age': base.get('age'),
             'gender': base.get('gender'),
             'weight': base.get('weight'),
